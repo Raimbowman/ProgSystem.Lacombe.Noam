@@ -15,7 +15,7 @@ public class Image {
      */
     public Image(int width, int hauteur) {
         this.width = width;
-        this.height = height;
+        this.height = hauteur;
         pixels = new int[hauteur][width][3];
     }
 
@@ -34,6 +34,16 @@ public class Image {
      * Sauvegarde l'image au format texte PPM (P3)
      */
     public void save_txt(String filename) throws IOException {
-        // TODO : écrire le fichier PPM avec FileWriter
+        FileWriter writer = new FileWriter(filename);
+        writer.write("P3\n");
+        writer.write(width + " " + height + "\n");
+        writer.write("255\n");
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                writer.write(pixels[y][x][0] + " " + pixels[y][x][1] + " " + pixels[y][x][2] + " ");
+            }
+            writer.write("\n");
+        }
+        writer.close();
     }
 }

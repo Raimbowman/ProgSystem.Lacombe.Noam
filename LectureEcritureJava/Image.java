@@ -1,5 +1,6 @@
 import java.io.FileWriter;
 import java.io.IOException;
+import java.util.Scanner;
 
 public class Image {
     private int width;
@@ -16,7 +17,7 @@ public class Image {
     public Image(int width, int hauteur) {
         this.width = width;
         this.height = hauteur;
-        pixels = new int[hauteur][width][3];
+        pixels = new int[hauteur][width][3]; //3 = RGB
     }
 
     /**
@@ -46,4 +47,14 @@ public class Image {
         }
         writer.close();
     }
+	
+	/**
+	 * Lecture d'un fichier ppm écrit au en décimal
+	 */
+	public static void read_bin(String filename) {
+		Scanner lecteur = new Scanner(filename);
+		while (lecteur.hasNextLine()) {
+			System.out.println(lecteur.nextLine());
+		}
+	}
 }

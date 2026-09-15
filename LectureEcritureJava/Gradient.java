@@ -17,6 +17,11 @@ public class Gradient {
             System.err.println("Erreur lors de la création du dégradé : " + e.getMessage());
         }
 		
-		img.read_bin("gradient.ppm");
+		try {
+            img.write_bin("gradientBin.ppm");
+            System.out.println("Dégradé binaire créé avec succès !");
+        } catch (Exception e) {
+            System.err.println("Erreur lors de la création du dégradé : " + e.getMessage());
+        }
     }
 }

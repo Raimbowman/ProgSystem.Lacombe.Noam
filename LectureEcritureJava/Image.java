@@ -1,6 +1,6 @@
 import java.io.FileWriter;
 import java.io.IOException;
-import java.util.Scanner;
+import java.io.FileOutputStream;
 
 public class Image {
     private int width;
@@ -49,12 +49,24 @@ public class Image {
     }
 	
 	/**
-	 * Lecture d'un fichier ppm écrit au en décimal
-	 */
-	public static void read_bin(String filename) {
-		Scanner lecteur = new Scanner(filename);
-		while (lecteur.hasNextLine()) {
-			System.out.println(lecteur.nextLine());
-		}
-	}
+     * Sauvegarde l'image au format binaire PPM (P6)
+     */
+    public void write_bin(String filename) throws IOException {
+        FileOutputStream out = new FileOutputStream(filename);
+
+        // En-tête : en texte (ASCII), donc on l'écrit avec getBytes()
+        String header = "P6\n" + width + " " + height + "\n255\n";
+        out.write(header.getBytes());
+
+        // Corps : chaque valeur R, G, B est un octet brut (0-255)
+        for (int y = 0; y < height; y++) {
+            for (int x = 0; x < width; x++) {
+                out.write(pixels[y][x][0]); // R
+                out.write(pixels[y][x][1]); // G
+                out.write(pixels[y][x][2]); // B
+            }
+        }
+
+        out.close();
+    }
 }

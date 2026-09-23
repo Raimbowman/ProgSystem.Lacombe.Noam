@@ -11,12 +11,10 @@ public class Utils {
     }
 
     public static int readInt(byte[] memory, int offset) {
-        // TODO: Reconstituer le int sur 4 octets.
-		int valeur = 0x00;
-		valeur = valeur & (memory[offset]) << 0;
-		valeur = valeur & (memory[offset]) << 8;
-		valeur = valeur & (memory[offset]) << 16;
-		valeur = valeur & (memory[offset]) << 24;
+        int valeur =    ((memory[offset]     & 0xFF) << 24) 
+                      + ((memory[offset + 1] & 0xFF) << 16) 
+                      + ((memory[offset + 2] & 0xFF) << 8)  
+                      + ( memory[offset + 3] & 0xFF);
         return valeur;
     }
 

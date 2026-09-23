@@ -25,7 +25,7 @@ public class Utils {
     }
 
     public static short readShort(byte[] memory, int offset) {
-        // TODO: Lire le short sur 2 octets.
-        return 0;
+        short valeur =  (short) (((memory[offset] & 0xFF) << 8) 
+                        |         (memory[offset + 1] & 0xFF));
     }
 }

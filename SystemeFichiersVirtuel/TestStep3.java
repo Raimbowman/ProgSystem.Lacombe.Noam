@@ -1,4 +1,4 @@
-public static void testStep3() {
+public static void main(String[] args) {
     System.out.println("=== TEST ÉTAPE 3 : Utils Long & String ===");
 
     byte[] buffer = new byte[64];

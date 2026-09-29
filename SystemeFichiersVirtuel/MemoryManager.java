@@ -76,8 +76,7 @@ public class MemoryManager {
     }
 
     public int allocateBlock() {
-        int resultat = -1;
-        int i = 129;
+        int i = 129; //Début des blocs de données
         while (i < NUM_BLOCKS && isBlockUsed(i) != 0) {
             i++;
         }

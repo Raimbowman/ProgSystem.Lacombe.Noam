@@ -1,163 +1,49 @@
-R3.05 - TP Système de fichiers virtuel (VFS)
-Compte rendu : questions de réflexion
-==========================================================
+R3.05 - TP VFS : questions de réflexion
 
+----------------------------------------------------------------------------------
 
-Question 1 : Représentation binaire
-----------------------------------------------------------
-Un byte[] ne contient que des octets : il ne dit pas dans quel ordre les 4 octets
-d'un int doivent être rangés. Il faut donc fixer une convention, sinon deux
-programmes (ou deux machines) peuvent interpréter les mêmes octets différemment.
+Q1 : Représentation binaire
+Un byte[] ne précise pas l'ordre des octets d'un int, il faut donc une convention
+(big-endian : octet de poids fort en premier). Si readInt lisait en little-endian
+ce que writeInt a écrit en big-endian, 0x01020304 serait relu 0x04030201 : la
+valeur est fausse sans aucune erreur, et les tailles ou pointeurs deviennent faux.
 
-- Big-endian : l'octet de poids fort est écrit en premier (à l'adresse la plus basse).
-- Little-endian : l'octet de poids faible est écrit en premier.
+Q2 : Signes et octets
+Un byte Java est signé : 0xF0 vaut -16 et, converti en int, devient 0xFFFFFFF0
+(extension de signe). L'opérateur & est le ET bit à bit : & 0xFF garde les 8 bits
+de poids faible et met les autres à 0, ce qui donne 240. Sans ce masque, les octets
+>= 0x80 faussent la valeur reconstruite.
 
-Exemple avec la valeur 0x01020304 écrite en big-endian : les octets sont
-01 02 03 04. Si readInt lit ces octets en little-endian, il reconstruit
-0x04030201, soit 67 305 985 au lieu de 16 909 060. Aucune erreur n'est signalée :
-la donnée est simplement fausse.
+Q3 : Sérialisation
+readInt(writeInt(x)) == x vérifie seulement que les deux méthodes sont cohérentes :
+si les deux utilisent little-endian, le test passe alors que le format est faux.
+Il faut tester des valeurs variées : 0, -1, MAX_VALUE, MIN_VALUE, des octets >= 0x80
+et une valeur aux 4 octets différents (0x01020304). Inspecter directement les
+octets vérifie l'ordre, le nombre d'octets écrits et que les voisins ne sont pas écrasés.
 
-Dans un système de fichiers, ce problème est grave : la taille d'un fichier, un
-numéro de bloc ou un pointeur mal lu peut faire pointer vers le mauvais bloc, voire
-hors de la mémoire. La convention doit donc être unique et respectée par writeInt
-et readInt (c'est aussi ce que fait le format réseau, qui est big-endian).
+Q4 : Bitmap
+Le bitmap utilise 1 bit par bloc au lieu de 32 pour un int. Taille = ceil(N/8) octets.
+Ici : 2048 / 8 = 256 octets, contre 8192 avec un entier par bloc.
 
+Q5 : Layout
+Chaque structure a une adresse fixe (constantes), ce qui permet de la retrouver par
+simple calcul d'offset. Si le bitmap était déplacé sans modifier les méthodes, elles
+liraient et écriraient au mauvais endroit : blocs occupés vus comme libres, donc
+données ou inodes écrasés.
 
-Question 2 : Signes et octets
-----------------------------------------------------------
-En Java, un byte est signé (de -128 à 127). Quand on l'utilise dans un calcul sur
-des int, il est d'abord converti en int avec extension de signe : le bit de signe
-est recopié sur les 24 bits de poids fort.
+Q6 : Inode
+Les métadonnées ont une taille fixe (128 octets), le contenu une taille variable.
+Les séparer permet d'accéder à l'inode n directement (offset = base + n x 128) et de
+modifier le contenu sans déplacer l'inode. L'inode ne contient pas les données mais
+les numéros des blocs où elles se trouvent (pointeurs) : c'est un index.
 
-Exemple : l'octet 0xF0 vaut -16 en byte. Converti en int, il devient 0xFFFFFFF0
-(et non 0x000000F0 = 240).
+Q7 : Allocation
+Les blocs 0 à 128 contiennent le superbloc, le bitmap et la table d'inodes : les
+données commencent au bloc 129. En partant de 0, on pourrait obtenir le bloc 128
+(non marqué occupé dans le bitmap) et écraser des inodes.
 
-L'opérateur & est le ET bit à bit : chaque bit du résultat vaut 1 seulement si les
-deux bits correspondants valent 1. Avec le masque 0xFF (00000000 ... 11111111),
-on garde les 8 bits de poids faible et on met tous les autres à 0 :
-
-    0xFFFFFFF0 & 0xFF = 0x000000F0 = 240
-
-On récupère donc la valeur non signée de l'octet (0 à 255). Sans ce masque, un
-octet >= 0x80 pollue les octets de poids fort lors du décalage et de l'addition
-(ex. (memory[offset] << 24) + ...), et la valeur reconstruite est fausse.
-
-
-Question 3 : Sérialisation
-----------------------------------------------------------
-Tester seulement readInt(writeInt(x)) == x est insuffisant, car le test vérifie
-que les deux méthodes sont cohérentes entre elles, pas qu'elles sont correctes.
-Exemple : si writeInt et readInt utilisent tous les deux little-endian, le test
-passe, alors que le format imposé par le TP (big-endian) n'est pas respecté.
-Un autre défaut classique : writeInt qui écrase un octet voisin, ce qu'un simple
-aller-retour ne voit pas.
-
-Comment choisir les valeurs de x :
-- les valeurs limites : 0, 1, -1, Integer.MAX_VALUE, Integer.MIN_VALUE ;
-- des valeurs avec des octets >= 0x80 (ex. 0xF0A1B2E3), pour détecter l'oubli
-  du masque & 0xFF ;
-- une valeur dont les 4 octets sont tous différents (ex. 0x01020304), pour
-  détecter une inversion d'ordre ;
-- quelques valeurs aléatoires, et des offsets différents (pas seulement 0).
-
-L'inspection directe des octets (comme dans TestRunner : buffer[3] == 0xF0, etc.)
-permet de vérifier :
-- l'ordre des octets (big-endian) ;
-- le nombre d'octets écrits (la valeur de retour) ;
-- que les octets voisins n'ont pas été modifiés.
-C'est donc un test du format, et pas seulement de la cohérence du code.
-
-
-Question 4 : Bitmap
-----------------------------------------------------------
-Un bitmap utilise 1 bit par bloc (1 = occupé, 0 = libre), alors qu'un tableau
-d'entiers en utilise 32 (4 octets). Un octet du bitmap décrit donc 8 blocs.
-
-Pour N blocs, la taille du bitmap est :
-
-    taille = ceil(N / 8) octets
-
-Avec nos valeurs : N = 1 Mo / 512 = 2048 blocs, donc 2048 / 8 = 256 octets.
-Avec un entier par bloc, il faudrait 4 x 2048 = 8192 octets, soit 32 fois plus.
-Le bitmap tient ainsi dans un seul bloc de 512 octets, et une opération se fait
-avec un calcul simple : octet = N / 8, bit = N % 8.
-
-
-Question 5 : Layout
-----------------------------------------------------------
-Le layout (superbloc en 0, bitmap en 512, table des inodes en 1024, données à
-partir du bloc 129) est fixé par des constantes : chaque structure a une adresse
-connue à l'avance. C'est ce qui permet de retrouver une information avec un
-simple calcul d'offset, sans rien chercher. Ça permet aussi de relire la mémoire
-plus tard (ou sur une autre machine) en sachant où se trouve chaque chose.
-
-Si le bitmap changeait de place sans modifier les méthodes qui l'utilisent, ces
-méthodes continueraient à lire et écrire à l'ancien emplacement. Le bitmap
-serait alors lu dans une zone qui ne le contient plus (inodes, données...) et on
-risquerait :
-- de croire qu'un bloc est libre alors qu'il est occupé, donc d'écraser des
-  données ;
-- d'écrire des bits du bitmap au milieu d'autres structures et de les corrompre.
-C'est pour cela que tout le code utilise les constantes (BITMAP_OFFSET...) :
-un seul endroit à modifier.
-
-
-Question 6 : Inode
-----------------------------------------------------------
-Les métadonnées (type, taille, nom, pointeurs) ont une taille fixe et petite
-(128 octets), alors que le contenu d'un fichier a une taille variable. Les séparer
-permet :
-- d'avoir une table d'inodes à taille fixe, donc l'inode n est à l'offset
-  INODE_TABLE_OFFSET + n x 128, accessible directement ;
-- de lire la taille ou le type d'un fichier sans parcourir son contenu ;
-- de faire grandir ou réduire le contenu (en changeant les pointeurs) sans
-  déplacer l'inode.
-
-Un inode ne contient pas les données : il contient les numéros des blocs où elles
-se trouvent (10 pointeurs directs, donc au plus 10 x 512 = 5120 octets dans
-notre VFS). Pour lire un fichier, on lit son inode, on récupère les pointeurs,
-puis on lit les blocs correspondants (bloc x 512 = adresse en mémoire) en
-s'arrêtant à la taille du fichier. L'inode joue le rôle d'un index : il permet de
-retrouver le contenu sans le contenir.
-
-
-Question 7 : Allocation
-----------------------------------------------------------
-Les blocs 0 à 128 sont réservés aux structures du système de fichiers :
-bloc 0 = superbloc, bloc 1 = bitmap, blocs 2 à 128 = table d'inodes.
-Les données commencent donc au bloc 129 (DATA_OFFSET = 129 x 512).
-allocateBlock() doit commencer à 129 pour ne jamais rendre un bloc réservé.
-
-Si la recherche commençait à 0 : le constructeur ne marque comme occupés que les
-128 premiers blocs (16 octets du bitmap à 0xFF, soit les blocs 0 à 127). Le bloc
-128 apparaîtrait donc comme libre alors qu'il appartient à la table des inodes
-(il contient notamment les inodes 504 à 507). allocateBlock() renverrait le
-bloc 128, et écrire des données de fichier dedans corromprait des inodes. En
-général, tout bloc de métadonnées non protégé par le bitmap pourrait être
-écrasé par des données utilisateur.
-Commencer à 129 est donc une garantie explicite, qui ne dépend pas de
-l'initialisation du bitmap.
-
-
-Question 8 : Fragmentation
-----------------------------------------------------------
-Oui. Le nombre de blocs libres ne dit rien sur leur répartition. Avec L = libre et
-O = occupé, voici deux systèmes de 8 blocs ayant chacun 4 blocs libres :
-
-    Système A :  O O O O L L L L   (les 4 blocs libres sont contigus)
-    Système B :  L O L O L O L O   (les 4 blocs libres sont dispersés)
-
-Le système A a un seul grand espace libre de 4 blocs : il peut accueillir
-immédiatement un fichier de 4 blocs consécutifs. Le système B a 4 trous de 1 bloc :
-il est fortement fragmenté et aucun fichier de 2 blocs consécutifs ne peut y être
-placé.
-
-C'est de la fragmentation externe (répartition des blocs libres et occupés).
-Dans notre VFS, les pointeurs d'inode permettent de placer un fichier sur des
-blocs non contigus, donc B peut quand même stocker un fichier de 4 blocs. En
-revanche, sur un vrai disque, lire des blocs dispersés est plus lent.
-
-La fragmentation interne, elle, est la place perdue à l'intérieur d'un bloc :
-un fichier de 600 octets occupe 2 blocs (1024 octets), donc 424 octets sont
-gaspillés. Le VFS ne la mesure pas, car il ne voit que l'état des blocs (libre
-ou occupé), pas ce qu'ils contiennent réellement.
+Q8 : Fragmentation
+Oui, le nombre de blocs libres ne dit rien de leur répartition (L = libre, O = occupé) :
+  A : O O O O L L L L  -> 4 blocs libres contigus
+  B : L O L O L O L O  -> 4 blocs libres dispersés, système fragmenté
+Le VFS ne mesure que cette fragmentation externe, pas celle à l'intérieur des blocs.

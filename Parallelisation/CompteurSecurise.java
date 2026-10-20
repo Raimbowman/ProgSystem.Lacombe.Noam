@@ -1,5 +1,6 @@
-public class CompteurDangereux {
+public class CompteurSecurise {
     private static int compteurGlobal = 0;
+    private static final Object verrou = new Object();
 
     static class Incrementeur implements Runnable {
         private final String nom;
@@ -12,18 +13,26 @@ public class CompteurDangereux {
 
         @Override
         public void run() {
-            for (int i = 0; i < nombreIncrements; i++) {
-                compteurGlobal++;
+            int valeur;
+            synchronized (verrou) {
+                for (int i = 0; i < nombreIncrements; i++) {
+                    compteurGlobal++;
+                }
+                valeur = compteurGlobal;
             }
-            System.out.println(nom + " terminé. Compteur vu : " + compteurGlobal);
+            System.out.println(nom + " terminé. Compteur vu : " + valeur);
         }
     }
 
     public static int getCompteur() {
-        return compteurGlobal;
+        synchronized(verrou) {
+            return compteurGlobal;
+        }
     }
 
     public static void resetCompteur() {
-        compteurGlobal = 0;
+        synchronized(verrou) {
+            compteurGlobal = 0;
+        }
     }
 }
